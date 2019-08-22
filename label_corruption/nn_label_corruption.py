@@ -1,31 +1,39 @@
 
+import pandas as pd
 import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
-mnist = tf.keras.datasets.mnist
+datasetName = 'mnist'
 
-(X, y),(x_test, y_test) = mnist.load_data()
+if datasetName == 'mnist':
+    dataset = tf.keras.datasets.mnist
+elif datasetName == 'cifar10':
+    dataset = tf.keras.datasets.cifar10
+elif datasetName == 'fasion_mnist':
+    dataset = tf.keras.datasets.fashion_mnist
+else:
+    raise ValueError("No dataset with name {}".format(datasetName))
+
+(X, y),(x_test, y_test) = dataset.load_data()
+if datasetName in ['mnist','fashion_mnist']:
+    X = X[...,np.newaxis]
+    x_test = x_test[...,np.newaxis]
+y = np.squeeze(y)
+y_test = np.squeeze(y_test)
+
 X, x_test = X / 255.0, x_test / 255.0
 
-#X = X[:20000]
-#y = y[:20000]
+#X = X[:2000]
+#y = y[:2000]
 
 x_train, x_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=0)
-
-#val_indices = np.random.choice(len(y_train), size=int(np.floor(len(y_train))), replace=False)
-#
-#x_val = x_train[val_indices]
-#y_val = y_train[val_indices]
-#
-#x_train = x_train[~val_indices]
-#y_train = y_train[~val_indices]
 
 train_acc_crpt_list = []
 test_acc_list = []
 train_acc_list = []
 
-#corruption_fraction_list = np.array([0.0, 0.1]) #[0.0, 0.1, 0.2, 0.3]
+#corruption_fraction_list = np.array([0.0, 0.1])
 corruption_fraction_list = np.linspace(0,0.9,10)
 
 print("Corruption Fraction List =", corruption_fraction_list)
@@ -33,7 +41,9 @@ print("Corruption Fraction List =", corruption_fraction_list)
 # Label corruption
 for corruption_fraction in corruption_fraction_list:    
     print("Corruption Fraction={}".format(corruption_fraction))
-    
+    with open("train_history.txt", "a") as file:
+        file.write("\nCorruption Fraction={}\n".format(corruption_fraction))
+        
     corruption_sz = int(np.floor(corruption_fraction*len(y_train)))
     
     corruption_indices = np.random.choice(len(y_train), size=corruption_sz, replace=False)
@@ -42,8 +52,8 @@ for corruption_fraction in corruption_fraction_list:
     y_train_crpt[corruption_indices] = np.random.choice(y_train_crpt.max()+1, size=corruption_sz)
     
     model = tf.keras.models.Sequential([
-            tf.keras.layers.Conv1D(64, 3, input_shape=(28, 28), activation='relu'),
-            tf.keras.layers.Conv1D(128, 3, activation='relu'),
+            tf.keras.layers.Conv2D(64, 3, input_shape=x_train[0].shape, activation='relu'),
+            tf.keras.layers.Conv2D(128, 3, activation='relu'),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(256, activation='relu'),
             tf.keras.layers.Dense(10, activation='softmax')
@@ -56,9 +66,12 @@ for corruption_fraction in corruption_fraction_list:
     print("Number of model parameters:", model.count_params())
     
     # simple early stopping
-    #es = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', verbose=1)
+    es = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', verbose=1)
     
-    model.fit(x_train, y_train_crpt, validation_data=(x_val, y_val), epochs=200) #, callbacks=[es])
+    history = model.fit(x_train, y_train_crpt, validation_data=(x_val, y_val), epochs=200, callbacks=[es])
+    
+    pd.DataFrame(history.history).to_csv("train_history.txt", mode='a', sep='\t')
+    
     print("Model evaluation:", model.evaluate(x_test, y_test)[1])
     
     train_acc_crpt = model.evaluate(x_train, y_train_crpt)[1]
@@ -86,7 +99,7 @@ plt.xlabel("Fraction of labels corrupted (%)")
 plt.ylabel("Accuracy (%)")
 plt.legend()
 
-plt.savefig('mnist_corrupted_labels.png')
+plt.savefig('nn_corrupted_labels.png')
 
 plt.show()
 
@@ -101,7 +114,7 @@ data = {
     'test_acc': test_acc_list,
     'train_acc_true_labels': train_acc_list
 }
-pd.DataFrame(data).to_csv("mnist_corrupted_labels.txt", mode='a', sep='\t', index=False)
+pd.DataFrame(data).to_csv("nn_corrupted_labels.txt", mode='a', sep='\t', index=False)
 
 
 #plt.imshow(x_test[1])
