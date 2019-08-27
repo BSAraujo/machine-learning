@@ -7,7 +7,7 @@ using Plots
 using Random
 Random.seed!(123);
 
-num_samples = 2000
+num_samples = 200
 N_dims = 2
 
 # Generate the points
@@ -26,58 +26,83 @@ x[Int(num_samples/2)+1:end,2] = x[Int(num_samples/2)+1:end,2] .+ 3
 y[Int(num_samples/2)+1:end] = -ones(Int(num_samples/2))
 
 
-# Optimization model - Quadratic Program
-model = Model(solver=AmplNLSolver("couenne", [""]));
+function solve_svm(x,y,C)
+    num_samples, N_dims = size(x)
 
-# Variables
-@variable(model, w[1:N_dims])
-@variable(model, b)
+    # Optimization model
+    model = Model(solver=AmplNLSolver("couenne", [""]));
 
-# Objective
-@NLobjective(model, Min, 0.5 * sum(w[k]^2 for k=1:N_dims))
+    # Variables
+    @variable(model, w[1:N_dims])
+    @variable(model, b)
+    @variable(model, ξ[1:num_samples] >= 0.0)
 
-# Constraints
-@constraint(model, con[i=1:num_samples], y[i]*(sum(w[k]*x[i,k] for k=1:N_dims) + b) >= 1)
+    # Objective
+    # ξ
+    @NLobjective(model, Min, 0.5*sum(w[k]^2 for k=1:N_dims) + C*sum(ξ[i] for i=1:num_samples))
 
-# Solve
-println()
-status = solve(model)
-solvetime = getsolvetime(model)
-obj_value = getobjectivevalue(model);
-println("Solve time: ", solvetime)
-println("Objective=", obj_value);
+    # Constraints
+    @constraint(model, con[i=1:num_samples], y[i]*(w'*x[i,:] + b) >= 1 - ξ[i])
 
-# Recover variable values
-w_opt = getvalue(w)
-b_opt = getvalue(b)
+    # Solve
+    println()
+    status = solve(model)
+    solvetime = getsolvetime(model)
+    obj_value = getobjectivevalue(model);
+    println("Solve time: ", solvetime)
+    println("Objective=", obj_value);
 
-# Retrieve equation for the optimal separation line
-x_plot = range(0,stop=5,length=1000)
-y_line = .- (w_opt[1] / w_opt[2]) .* x_plot  .- (b_opt / w_opt[2])
+    # Recover variable values
+    w_opt = getvalue(w)
+    b_opt = getvalue(b)
 
-# Equations for the margins
-y_margin1 = .- (w_opt[1] / w_opt[2]) .* x_plot .- (b_opt / w_opt[2] + 1 / w_opt[2])
-y_margin2 = .- (w_opt[1] / w_opt[2]) .* x_plot .- (b_opt / w_opt[2] - 1 / w_opt[2])
+    return w_opt, b_opt
+end
+
+
+i = 1
+C_values = [0.01, 0.1, 0.5, 1.0, 5.0, 10.0]
+plot_array = Any[]
+for C in C_values
+    println("C=$C")
+    w_opt, b_opt = solve_svm(x,y,C)
+
+    # Retrieve equation for the optimal separation line
+    xx = range(0,stop=5,length=1000)
+    a = - w_opt[1] / w_opt[2]
+    y_line = a.*xx .+ (-b_opt / w_opt[2])
+
+    # Equations for the margins
+    y_margin1 = a.*xx .+ ((1 - b_opt) / w_opt[2])
+    y_margin2 = a.*xx .+ ((-1 - b_opt) / w_opt[2])
+
+    # Plot result
+    plt = scatter(x[1:Int(num_samples/2),1], x[1:Int(num_samples/2),2], color=:blue, leg=false, title="C=$C")
+    plt = scatter!(x[Int(num_samples/2)+1:end,1], x[Int(num_samples/2)+1:end,2], color=:red, leg=false)
+    plt = plot!(xx, y_line, linestyle=:dash, color=:gray, leg=false)
+    plt = plot!(xx, y_margin1, linestyle=:dash, color=:gray, leg=false)
+    plt = plot!(xx, y_margin2, linestyle=:dash, color=:gray, leg=false)
+
+    push!(plot_array, plt)
+    global i += 1
+end
+
+plt = plot(plot_array..., layout=(2,Int(length(C_values)/2)))
+
 
 # Plot result
 # TODO: Plots with PyCall + matplotlib
 # using PyCall
 # plt = pyimport("matplotlib.pyplot")
-# plt.figure()
-# plt.scatter(x[:,0], x[:,1], c=y)
-# plt.plot(x_plot, y_line, linestyle='dashed', color='gray')
-# plt.plot(x_plot, y_margin1, linestyle='dashed', color='gray')
-# plt.plot(x_plot, y_margin2, linestyle='dashed', color='gray')
+# # plt = pyimport("matplotlib.pyplot")
+# # plt.figure()
+# plt.scatter(x[:,1], x[:,2], c=y)
+# plt.plot(xx, y_line, linestyle='dashed', color='gray')
+# plt.plot(xx, y_margin1, linestyle='dashed', color='gray')
+# plt.plot(xx, y_margin2, linestyle='dashed', color='gray')
 # plt.xlim((0,5))
 # plt.ylim((0,5))
 # plt.show()
 
-# Plot result
-plt = scatter(x[1:Int(num_samples/2),1], x[1:Int(num_samples/2),2], color=:blue)
-plt = scatter!(x[Int(num_samples/2)+1:end,1], x[Int(num_samples/2)+1:end,2], color=:red)
-plt = plot!(x_plot, y_line, linestyle=:dash, color=:gray)
-plt = plot!(x_plot, y_margin1, linestyle=:dash, color=:gray)
-plt = plot!(x_plot, y_margin2, linestyle=:dash, color=:gray)
-
 # Save figure
-png(plt, "tmp.png");
+savefig(plt, "tmp.pdf");
