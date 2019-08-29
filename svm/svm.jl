@@ -7,24 +7,28 @@ using Plots
 using Random
 Random.seed!(123);
 
-num_samples = 200
-N_dims = 2
 
-# Generate the points
-y = zeros(num_samples)
+function load_data()
+	num_samples = 200
+	N_dims = 2
+	# Generate the points
+	y = zeros(num_samples)
 
-r = rand(num_samples)
-theta = rand(num_samples)*2*pi
-x = hcat(r.*cos.(theta), r.*sin.(theta))
+	r = rand(num_samples)
+	theta = rand(num_samples)*2*pi
+	x = hcat(r.*cos.(theta), r.*sin.(theta))
 
-x[1:Int(num_samples/2),1] = x[1:Int(num_samples/2),1] .+ 2
-x[1:Int(num_samples/2),2] = x[1:Int(num_samples/2),2] .+ 1
-y[1:Int(num_samples/2)] = ones(Int(num_samples/2))
+	x[1:Int(num_samples/2),1] = x[1:Int(num_samples/2),1] .+ 2
+	x[1:Int(num_samples/2),2] = x[1:Int(num_samples/2),2] .+ 1
+	y[1:Int(num_samples/2)] = ones(Int(num_samples/2))
 
-x[Int(num_samples/2)+1:end,1] = x[Int(num_samples/2)+1:end,1] .+ 1
-x[Int(num_samples/2)+1:end,2] = x[Int(num_samples/2)+1:end,2] .+ 3
-y[Int(num_samples/2)+1:end] = -ones(Int(num_samples/2))
-
+	x[Int(num_samples/2)+1:end,1] = x[Int(num_samples/2)+1:end,1] .+ 1
+	x[Int(num_samples/2)+1:end,2] = x[Int(num_samples/2)+1:end,2] .+ 3
+	x[num_samples,1] = 1.25
+	x[num_samples,2] = 1
+	y[Int(num_samples/2)+1:end] = -ones(Int(num_samples/2))
+	return x, y
+end
 
 function solve_svm(x,y,C)
     num_samples, N_dims = size(x)
@@ -59,6 +63,9 @@ function solve_svm(x,y,C)
     return w_opt, b_opt
 end
 
+
+x, y = load_data()
+num_samples, N_dims = size(x)
 
 i = 1
 C_values = [0.01, 0.1, 0.5, 1.0, 5.0, 10.0]
@@ -105,4 +112,4 @@ plt = plot(plot_array..., layout=(2,Int(length(C_values)/2)))
 # plt.show()
 
 # Save figure
-savefig(plt, "tmp.pdf");
+savefig(plt, "svm_primal.pdf");
