@@ -5,30 +5,32 @@ Training a SVM with JuMP
 using JuMP, AmplNLWriter
 using Plots
 using Random
+include("utils.jl")
 Random.seed!(123);
 
 
 function load_data()
-	num_samples = 200
-	N_dims = 2
-	# Generate the points
-	y = zeros(num_samples)
+    num_samples = 200
+    N_dims = 2
+    # Generate the points
+    y = zeros(num_samples)
 
-	r = rand(num_samples)
-	theta = rand(num_samples)*2*pi
-	x = hcat(r.*cos.(theta), r.*sin.(theta))
+    r = rand(num_samples)
+    theta = rand(num_samples)*2*pi
+    x = hcat(r.*cos.(theta), r.*sin.(theta))
 
-	x[1:Int(num_samples/2),1] = x[1:Int(num_samples/2),1] .+ 2
-	x[1:Int(num_samples/2),2] = x[1:Int(num_samples/2),2] .+ 1
-	y[1:Int(num_samples/2)] = ones(Int(num_samples/2))
+    x[1:Int(num_samples/2),1] = x[1:Int(num_samples/2),1] .+ 2
+    x[1:Int(num_samples/2),2] = x[1:Int(num_samples/2),2] .+ 1
+    y[1:Int(num_samples/2)] = ones(Int(num_samples/2))
 
-	x[Int(num_samples/2)+1:end,1] = x[Int(num_samples/2)+1:end,1] .+ 1
-	x[Int(num_samples/2)+1:end,2] = x[Int(num_samples/2)+1:end,2] .+ 3
-	x[num_samples,1] = 1.25
-	x[num_samples,2] = 1
-	y[Int(num_samples/2)+1:end] = -ones(Int(num_samples/2))
-	return x, y
+    x[Int(num_samples/2)+1:end,1] = x[Int(num_samples/2)+1:end,1] .+ 1
+    x[Int(num_samples/2)+1:end,2] = x[Int(num_samples/2)+1:end,2] .+ 3
+    x[num_samples,1] = 1.25
+    x[num_samples,2] = 1
+    y[Int(num_samples/2)+1:end] = -ones(Int(num_samples/2))
+    return x, y
 end
+
 
 function solve_svm(x,y,C)
     num_samples, N_dims = size(x)
@@ -64,18 +66,23 @@ function solve_svm(x,y,C)
 end
 
 
-x, y = load_data()
+#x, y = load_data()
+x, y = get_clouds()
 num_samples, N_dims = size(x)
 
 i = 1
-C_values = [0.01, 0.1, 0.5, 1.0, 5.0, 10.0]
+#C_values = [0.01, 0.1, 0.5, 1.0, 5.0, 10.0]
+C_values = [1.0]
 plot_array = Any[]
+num_plots = length(C_values)
 for C in C_values
     println("C=$C")
     w_opt, b_opt = solve_svm(x,y,C)
 
     # Retrieve equation for the optimal separation line
-    xx = range(0,stop=5,length=1000)
+    min_x = minimum(x[:,1])
+    max_x = maximum(x[:,1])
+    xx = range(min_x-abs(min_x)*0.1,stop=max_x+abs(max_x)*0.1,length=1000)
     a = - w_opt[1] / w_opt[2]
     y_line = a.*xx .+ (-b_opt / w_opt[2])
 
@@ -84,17 +91,21 @@ for C in C_values
     y_margin2 = a.*xx .+ ((-1 - b_opt) / w_opt[2])
 
     # Plot result
-    plt = scatter(x[1:Int(num_samples/2),1], x[1:Int(num_samples/2),2], color=:blue, leg=false, title="C=$C")
+    global plt = scatter(x[1:Int(num_samples/2),1], x[1:Int(num_samples/2),2], color=:blue, leg=false, title="C=$C")
     plt = scatter!(x[Int(num_samples/2)+1:end,1], x[Int(num_samples/2)+1:end,2], color=:red, leg=false)
     plt = plot!(xx, y_line, linestyle=:dash, color=:gray, leg=false)
     plt = plot!(xx, y_margin1, linestyle=:dash, color=:gray, leg=false)
     plt = plot!(xx, y_margin2, linestyle=:dash, color=:gray, leg=false)
 
-    push!(plot_array, plt)
+    if num_plots > 1
+        push!(plot_array, plt)
+    end
     global i += 1
 end
 
-plt = plot(plot_array..., layout=(2,Int(length(C_values)/2)))
+if num_plots > 1
+    plt = plot(plot_array..., layout=(2,Int(num_plots/2)))
+end
 
 
 # Plot result
@@ -112,4 +123,10 @@ plt = plot(plot_array..., layout=(2,Int(length(C_values)/2)))
 # plt.show()
 
 # Save figure
-savefig(plt, "svm_primal.pdf");
+#savefig(plt, "svm_primal.pdf");
+
+# Display plot
+display(plt)
+
+println("Press enter to close window")
+readline()
