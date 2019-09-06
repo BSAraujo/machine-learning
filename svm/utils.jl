@@ -13,7 +13,6 @@ function get_clouds()
     return X, Y
 end
 
-
 function get_donut()
     N = 500
     R_inner = 5
@@ -35,6 +34,23 @@ function get_donut()
 end
 
 
+function get_multivariate_normal()
+    N = 500
+    muX = [2; 5]
+    sigX = [4 4; 4 8] 
+    sigX = (sigX ./ norm(sigX)) .* 2
+    X1 = rand(MvNormal(muX, sigX),N)'
+
+    muY = [10; 4]
+    sigY = [8 -4; -4 3]
+    sigY = sigY ./ norm(sigY)
+    sigY = sigY .* 3 
+    X2 = rand(MvNormal(muY, sigY),N)'
+    X = vcat(X1, X2)
+    Y = vcat(-1 .* ones(N), 1 .* ones(N))
+    return X,Y
+end
+
 function get_xor()
     N = 200
     X = zeros(N, 2)
@@ -51,7 +67,9 @@ function shuffle_data(X, y; random_state=nothing)
     if size(X)[1] != length(y)
         throw("The first dimension of X and y should exactly match")
     end
-    if random_state != nothing
+    if random_state == nothing
+        Random.seed!()
+    else
         Random.seed!(random_state)
     end
     idx = shuffle(1:size(X)[1])
@@ -85,7 +103,9 @@ function make_moons(; n_samples=100, shuffle=true, noise=nothing, random_state=n
     end
 
     if noise != nothing
-        if random_state != nothing
+        if random_state == nothing
+            Random.seed!()
+        else
             Random.seed!(random_state)
         end
         X .+= randn(size(X))*noise
@@ -103,7 +123,9 @@ function make_blobs(; n_samples=100, n_features=2, centers=nothing, cluster_std=
     """Generate isotropic Gaussian blobs for clustering.
     """
     #generator = check_random_state(random_state)
-    if random_state != nothing
+    if random_state == nothing
+        Random.seed!()
+    else 
         Random.seed!(random_state)
     end
 
@@ -116,7 +138,6 @@ function make_blobs(; n_samples=100, n_features=2, centers=nothing, cluster_std=
         if isa(centers, Int)
             n_centers = centers
             centers = (center_box[2] - center_box[1]).*rand(n_centers, n_features) .+ center_box[1]
-            println("centers=$centers")
             #centers = generator.uniform(center_box[0], center_box[1], size=(n_centers, n_features))
         else
             #centers = check_array(centers)
@@ -159,9 +180,11 @@ function make_blobs(; n_samples=100, n_features=2, centers=nothing, cluster_std=
         #cluster_std = np.full(len(centers), cluster_std)
     end
 
+    # Initialize data as empty arrays
     X = reshape([],0,n_features)
     y = []
 
+    # Transform n_samples to an array
     if isa(n_samples, Array)
         n_samples_per_center = n_samples
     else
@@ -172,11 +195,13 @@ function make_blobs(; n_samples=100, n_features=2, centers=nothing, cluster_std=
         end
     end
 
+    # Relocate blobs and add random noise
     for (i, (n, std)) in enumerate(zip(n_samples_per_center, cluster_std))
-        X = vcat(X, randn(n, n_features).*std .+ centers[i])
+        X = vcat(X, randn(n, n_features).*std + repeat(centers[i,:]', n))
         y = vcat(y, repeat([i], n))
     end
 
+    # Shuffle data
     if shuffle
         X, y = shuffle_data(X, y, random_state=random_state)
     end
