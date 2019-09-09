@@ -1,64 +1,60 @@
 using Plots, Random
 
-function get_clouds()
-    N = 1000
+function get_clouds(; n_samples=500)
     c1 = [2; 2]
     c2 = [-2; -2]
     # c1 = np.array([0, 3])
     # c2 = np.array([0, 0])
-    X1 = randn(N, 2) + repeat(c1',N)
-    X2 = randn(N, 2) + repeat(c2',N)
+    X1 = randn(n_samples, 2) + repeat(c1',n_samples)
+    X2 = randn(n_samples, 2) + repeat(c2',n_samples)
     X = vcat(X1, X2)
-    Y = vcat(-1 .* ones(N), 1 .* ones(N))
+    Y = vcat(-1 .* ones(n_samples), 1 .* ones(n_samples))
     return X, Y
 end
 
-function get_donut()
-    N = 500
+function get_donut(; n_samples=500)
     R_inner = 5
     R_outer = 10
 
     # distance from origin is radius + random normal
     # angle theta is uniformly distributed between (0, 2pi)
-    R1 = randn(Int(N/2)) .+ R_inner
-    theta = 2*pi*rand(Int(N/2))
+    R1 = randn(Int(n_samples/2)) .+ R_inner
+    theta = 2*pi*rand(Int(n_samples/2))
     X_inner = hcat(R1 .* cos.(theta), R1 .* sin.(theta))
 
-    R2 = randn(Int(N/2)) .+ R_outer
-    theta = 2*pi*rand(Int(N/2))
+    R2 = randn(Int(n_samples/2)) .+ R_outer
+    theta = 2*pi*rand(Int(n_samples/2))
     X_outer = hcat(R2 .* cos.(theta), R2 .* sin.(theta))
 
     X = vcat(X_inner, X_outer)
-    Y = vcat(zeros(Int(N/2)), ones(Int(N/2)))
+    Y = vcat(zeros(Int(n_samples/2)), ones(Int(n_samples/2)))
     return X, Y
 end
 
 
-function get_multivariate_normal()
-    N = 500
+function get_multivariate_normal(; n_samples=500)
     muX = [2; 5]
     sigX = [4 4; 4 8] 
     sigX = (sigX ./ norm(sigX)) .* 2
-    X1 = rand(MvNormal(muX, sigX),N)'
+    X1 = rand(MvNormal(muX, sigX), n_samples)'
 
     muY = [10; 4]
     sigY = [8 -4; -4 3]
     sigY = sigY ./ norm(sigY)
     sigY = sigY .* 3 
-    X2 = rand(MvNormal(muY, sigY),N)'
+    X2 = rand(MvNormal(muY, sigY), n_samples)'
     X = vcat(X1, X2)
-    Y = vcat(-1 .* ones(N), 1 .* ones(N))
+    Y = vcat(-1 .* ones(n_samples), 1 .* ones(n_samples))
     return X,Y
 end
 
-function get_xor()
-    N = 200
-    X = zeros(N, 2)
-    X[1:Int(N/4),:] = rand(Int(N/4), 2) ./ 2 .+ 0.5 # (0.5-1, 0.5-1)
-    X[Int(N/4)+1:Int(N/2),:] = rand(Int(N/4), 2) ./ 2 # (0-0.5, 0-0.5)
-    X[Int(N/2)+1:Int(3*N/4),:] = rand(Int(N/4), 2) ./ 2 + repeat([0 0.5],Int(N/4)) # (0-0.5, 0.5-1)
-    X[Int(3*N/4)+1:end,:] = rand(Int(N/4), 2) ./ 2 + repeat([0.5 0],Int(N/4)) # (0.5-1, 0-0.5)
-    Y = vcat(zeros(Int(N/2)), ones(Int(N/2)))
+function get_xor(; n_samples=200)
+    X = zeros(n_samples, 2)
+    X[1:Int(n_samples/4),:] = rand(Int(n_samples/4), 2) ./ 2 .+ 0.5 # (0.5-1, 0.5-1)
+    X[Int(n_samples/4)+1:Int(n_samples/2),:] = rand(Int(n_samples/4), 2) ./ 2 # (0-0.5, 0-0.5)
+    X[Int(n_samples/2)+1:Int(3*n_samples/4),:] = rand(Int(n_samples/4), 2) ./ 2 + repeat([0 0.5],Int(n_samples/4)) # (0-0.5, 0.5-1)
+    X[Int(3*n_samples/4)+1:end,:] = rand(Int(n_samples/4), 2) ./ 2 + repeat([0.5 0],Int(n_samples/4)) # (0.5-1, 0-0.5)
+    Y = vcat(zeros(Int(n_samples/2)), ones(Int(n_samples/2)))
     return X, Y
 end
 
@@ -95,7 +91,7 @@ function make_moons(; n_samples=100, shuffle=true, noise=nothing, random_state=n
 
     X = hcat(vcat(outer_circ_x, inner_circ_x),
              vcat(outer_circ_y, inner_circ_y))
-    y = vcat(zeros(n_samples_out),
+    y = vcat(-1 .* ones(n_samples_out),
              ones(n_samples_in))
 
     if shuffle
@@ -113,8 +109,6 @@ function make_moons(; n_samples=100, shuffle=true, noise=nothing, random_state=n
 
     return X, y
 end
-
-
 
 
 
@@ -142,7 +136,7 @@ function make_blobs(; n_samples=100, n_features=2, centers=nothing, cluster_std=
         else
             #centers = check_array(centers)
             n_features = size(centers)[2]
-            n_centers = size(enters)[1]
+            n_centers = size(centers)[1]
         end
     else
         # Set n_centers by looking at [n_samples] arg
@@ -196,9 +190,22 @@ function make_blobs(; n_samples=100, n_features=2, centers=nothing, cluster_std=
     end
 
     # Relocate blobs and add random noise
-    for (i, (n, std)) in enumerate(zip(n_samples_per_center, cluster_std))
-        X = vcat(X, randn(n, n_features).*std + repeat(centers[i,:]', n))
-        y = vcat(y, repeat([i], n))
+    if n_centers == 2  # in case of binary classes, use -1 and 1 as class labels (which make it more friendly for SVMs)
+        # label -1
+        n = n_samples_per_center[1]
+        std = cluster_std[1]
+        X = vcat(X, randn(n, n_features).*std + repeat(centers[1,:]', n))
+        y = vcat(y, repeat([-1], n))
+        # label 1
+        n = n_samples_per_center[2]
+        std = cluster_std[2]
+        X = vcat(X, randn(n, n_features).*std + repeat(centers[2,:]', n))
+        y = vcat(y, repeat([1], n))
+    else
+        for (i, (n, std)) in enumerate(zip(n_samples_per_center, cluster_std))
+            X = vcat(X, randn(n, n_features).*std + repeat(centers[i,:]', n))
+            y = vcat(y, repeat([i], n))
+        end
     end
 
     # Shuffle data
@@ -209,6 +216,25 @@ function make_blobs(; n_samples=100, n_features=2, centers=nothing, cluster_std=
     return X, y
 end
 
+
+function plot_data(data)
+    X, y = data
+    if y == nothing
+        global plt = scatter(X[:,1], X[:,2])
+    else
+        let i = 1
+            for label in unique(y)
+                if i == 1
+                    global plt = scatter(X[y.==label,1], X[y.==label,2])    
+                else
+                    plt = scatter!(X[y.==label,1], X[y.==label,2])
+                end
+                i += 1
+            end
+        end
+    end
+    display(plt)
+end
 
 # X,Y = get_clouds()
 # let i = 1
