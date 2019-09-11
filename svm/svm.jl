@@ -2,7 +2,7 @@
 Training a SVM with JuMP
 """
 
-using JuMP, AmplNLWriter
+using JuMP, AmplNLWriter, Gurobi
 using Plots
 using Random
 include("utils.jl")
@@ -36,7 +36,8 @@ function solve_svm(x,y,C)
     num_samples, N_dims = size(x)
 
     # Optimization model
-    model = Model(solver=AmplNLSolver("couenne", [""]));
+    #model = Model(solver=AmplNLSolver("couenne", [""]));
+    model = Model(solver=GurobiSolver(TimeLimit=400))
 
     # Variables
     @variable(model, w[1:N_dims])
@@ -45,7 +46,7 @@ function solve_svm(x,y,C)
 
     # Objective
     # ξ
-    @NLobjective(model, Min, 0.5*sum(w[k]^2 for k=1:N_dims) + C*sum(ξ[i] for i=1:num_samples))
+    @objective(model, Min, 0.5*sum(w[k]^2 for k=1:N_dims) + C*sum(ξ[i] for i=1:num_samples))
 
     # Constraints
     @constraint(model, con[i=1:num_samples], y[i]*(w'*x[i,:] + b) >= 1 - ξ[i])

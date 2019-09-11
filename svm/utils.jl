@@ -1,8 +1,24 @@
 using Plots, Random
 
-function get_clouds(; n_samples=500)
-    c1 = [2; 2]
-    c2 = [-2; -2]
+function plot_classes(X, y=nothing)
+    if y == nothing
+        global plt = scatter(X[:,1], X[:,2])
+    else
+        let i = 1
+            for label in unique(y)
+                if i == 1
+                    global plt = scatter(X[y.==label,1], X[y.==label,2])    
+                else
+                    plt = scatter!(X[y.==label,1], X[y.==label,2])
+                end
+                i += 1
+            end
+        end
+    end
+    display(plt);
+end
+
+function get_clouds(; n_samples=500, c1=[2; 2], c2=[-2; -2])
     # c1 = np.array([0, 3])
     # c2 = np.array([0, 0])
     X1 = randn(n_samples, 2) + repeat(c1',n_samples)
@@ -12,10 +28,7 @@ function get_clouds(; n_samples=500)
     return X, Y
 end
 
-function get_donut(; n_samples=500)
-    R_inner = 5
-    R_outer = 10
-
+function get_donut(; R_inner=5, R_outer=10, n_samples=500)
     # distance from origin is radius + random normal
     # angle theta is uniformly distributed between (0, 2pi)
     R1 = randn(Int(n_samples/2)) .+ R_inner
@@ -27,19 +40,16 @@ function get_donut(; n_samples=500)
     X_outer = hcat(R2 .* cos.(theta), R2 .* sin.(theta))
 
     X = vcat(X_inner, X_outer)
-    Y = vcat(zeros(Int(n_samples/2)), ones(Int(n_samples/2)))
+    Y = vcat(-1 .* ones(Int(n_samples/2)), ones(Int(n_samples/2)))
     return X, Y
 end
 
 
-function get_multivariate_normal(; n_samples=500)
-    muX = [2; 5]
-    sigX = [4 4; 4 8] 
+function get_multivariate_normal(; n_samples=500, muX=[2; 5], muY=[10; 4], 
+                                   sigX=[4 4; 4 8], sigY=[8 -4; -4 3])
     sigX = (sigX ./ norm(sigX)) .* 2
     X1 = rand(MvNormal(muX, sigX), n_samples)'
 
-    muY = [10; 4]
-    sigY = [8 -4; -4 3]
     sigY = sigY ./ norm(sigY)
     sigY = sigY .* 3 
     X2 = rand(MvNormal(muY, sigY), n_samples)'
